@@ -5,8 +5,8 @@ import ipdb as pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules.pointpillars import PillarFeatureNet, PointPillarsScatter
-from modules.segnet import segnetGndEst
+from .modules.pointpillars import PillarFeatureNet, PointPillarsScatter
+from .modules.segnet import segnetGndEst
 
 
 

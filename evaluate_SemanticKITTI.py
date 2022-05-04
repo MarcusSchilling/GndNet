@@ -22,11 +22,11 @@ import numpy as np
 
 
 # from modules import gnd_est_Loss
-from model import GroundEstimatorNet
-from modules.loss_func import MaskedHuberLoss
-from dataset_utils.dataset_provider import get_train_loader, get_valid_loader
-from utils.utils import lidar_to_img, lidar_to_heightmap, segment_cloud
-from utils.point_cloud_ops import points_to_voxel
+from .model import GroundEstimatorNet
+from .modules.loss_func import MaskedHuberLoss
+from .dataset_utils.dataset_provider import get_train_loader, get_valid_loader
+from .utils.utils import lidar_to_img, lidar_to_heightmap, segment_cloud
+from .utils.point_cloud_ops import points_to_voxel
 import ipdb as pdb
 import matplotlib.pyplot as plt
 
@@ -50,12 +50,12 @@ if use_cuda:
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
-parser.add_argument('--config', default='config/config_kittiSem.yaml', type=str, metavar='PATH', help='path to config file (default: none)')
+parser.add_argument('--config', default=os.path.join(os.getcwd(),'GndNet/config/config_kittiSem.yaml'), type=str, metavar='PATH', help='path to config file (default: none)')
 parser.add_argument('-v', '--visualize', dest='visualize', action='store_true', help='visualize model on validation set')
 parser.add_argument('-gnd', '--visualize_gnd', dest='visualize_gnd', action='store_true', help='visualize ground elevation')
 parser.add_argument('--data_dir', default="/home/anshul/es3cap/semkitti_gndnet/kitti_semantic/dataset/sequences/07/", 
                         type=str, metavar='PATH', help='path to config file (default: none)')
-args = parser.parse_args()
+args = parser.parse_args([])
 
 
 if os.path.isfile(args.config):
@@ -66,7 +66,7 @@ if os.path.isfile(args.config):
     class ConfigClass:
         def __init__(self, **entries):
             self.__dict__.update(entries)
-
+    
     cfg = ConfigClass(**config_dict) # convert python dict to class for ease of use
 
 else:
@@ -74,20 +74,6 @@ else:
 
 print("setting batch_size to 1")
 cfg.batch_size = 1
-
-
-if args.visualize:
-
-    # Ros Includes
-    import rospy
-    from utils.ros_utils import np2ros_pub_2, gnd_marker_pub
-    from sensor_msgs.msg import PointCloud2
-    from visualization_msgs.msg import Marker
-
-    rospy.init_node('gnd_data_provider', anonymous=True)
-    pcl_pub = rospy.Publisher("/kitti/velo/pointcloud", PointCloud2, queue_size=10)
-    marker_pub_2 = rospy.Publisher("/kitti/gnd_marker_pred", Marker, queue_size=10)
-
 
 
 
@@ -140,7 +126,9 @@ def get_target_gnd(cloud, sem_label):
     gnd_heightmap = lidar_to_heightmap(np.copy(gnd), np.asarray(cfg.grid_range), cfg.voxel_size[0], max_points = 100)
     return  gnd_heightmap, gnd_mask
 
-
+def infer(velo_points):
+    pred_gnd = InferGround(velo_points).cpu().numpy()
+    return segment_cloud(velo_points.copy(), np.asarray(cfg.grid_range), cfg.voxel_size[0], elevation_map= pred_gnd.T, threshold=0.2)    
 
 
 def InferGround(cloud):
